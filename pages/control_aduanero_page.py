@@ -107,6 +107,27 @@ class ControlAduaneroPage:
         self._take_screenshot(f"datos_guia_madre_{guia_madre.moneda}")
         self.page.get_by_role("button", name=re.compile("crear gu[ií]a madre", re.I)).click()
 
+    @allure.step("Intentar crear guia madre omitiendo campo obligatorio")
+    def intentar_crear_guia_madre_sin_campo(self, guia_madre: GuiaMadre, campo_omitido: str) -> None:
+        campos = {
+            "No. Guia": guia_madre.numero_guia,
+            "Numero de vuelo": guia_madre.numero_vuelo,
+            "Origen": guia_madre.origen,
+            "Destino": guia_madre.destino,
+            "Total cajas": guia_madre.total_cajas,
+            "Total de guias individuales": guia_madre.total_guias_individuales,
+            "Peso declarado": guia_madre.peso_declarado,
+            "Valor declarado": guia_madre.valor_declarado,
+        }
+        for nombre, valor in campos.items():
+            if self._normalizar_texto(nombre) == self._normalizar_texto(campo_omitido):
+                continue
+            self._llenar_campo(nombre, valor)
+
+        self._seleccionar_moneda(guia_madre.moneda)
+        self._take_screenshot(f"guia_madre_sin_{self._normalizar_texto(campo_omitido)}")
+        self.page.get_by_role("button", name=re.compile("crear gu[ií]a madre", re.I)).click()
+
     @allure.step("Validar guia madre creada")
     def validar_guia_madre_creada(self, numero_guia: str) -> None:
         mensaje_exito = self.page.get_by_text(
@@ -118,12 +139,30 @@ class ControlAduaneroPage:
         expect(self.page.get_by_role("heading", name=re.compile("gu[ií]as madre", re.I))).to_be_visible()
         expect(self.page.get_by_text(numero_guia, exact=True)).to_be_visible(timeout=30000)
 
+    @allure.step("Validar campo obligatorio")
+    def validar_campo_obligatorio(self, campo: str) -> None:
+        campo_locator = self._obtener_campo(campo).first
+        expect(campo_locator).to_be_visible(timeout=10000)
+        valor_actual = campo_locator.input_value()
+        assert self._valor_omitido(valor_actual), (
+            f"El campo '{campo}' no quedo omitido durante la validacion. "
+            f"Valor actual: '{valor_actual}'."
+        )
+        expect(self.page.get_by_text(re.compile("creado con [eé]xito", re.I))).not_to_be_visible()
+        expect(self.page.get_by_role("button", name=re.compile("crear gu[ií]a madre", re.I))).to_be_visible()
+        self._take_screenshot(f"campo_obligatorio_{self._normalizar_texto(campo)}")
+
     def _llenar_campo(self, nombre: str, valor: str) -> None:
-        patron = self._patron_texto(nombre)
-        campo = self.page.get_by_role("textbox", name=patron)
+        self._obtener_campo(nombre).first.fill(valor)
+
+    def _obtener_campo(self, nombre: str):
+        patron = self._patron_campo(nombre)
+        campo = self.page.get_by_label(patron)
+        if campo.count() == 0:
+            campo = self.page.get_by_role("textbox", name=patron)
         if campo.count() == 0:
             campo = self.page.get_by_placeholder(patron)
-        campo.first.fill(valor)
+        return campo
 
     def _seleccionar_moneda(self, moneda: str) -> None:
         select_moneda = self.page.get_by_label(re.compile("moneda de valor declarado", re.I))
@@ -165,3 +204,28 @@ class ControlAduaneroPage:
             patron = patron.replace(letra, expresion)
         patron = patron.replace(r"\ ", r"\s+")
         return re.compile(patron, re.I)
+
+    def _patron_campo(self, nombre: str) -> re.Pattern:
+        patrones = {
+            "No. Guia": r"^No\.?\s*Gu[ií]a\s*\*?$",
+            "Numero de vuelo": r"^N[uú]mero\s+de\s+vuelo\s*\*?$",
+            "Origen": r"^Origen\s*\*?$",
+            "Destino": r"^Destino\s*\*?$",
+            "Total cajas": r"^Total\s+Cajas\s*\*?$",
+            "Total de guias individuales": r"^Total\s+de\s+gu[ií]as\s+individuales\s*\*?$",
+            "Peso declarado": r"^Peso\s+declarado(?:\s+en\s+KG)?\s*\*?$",
+            "Valor declarado": r"^Valor\s+declarado\s*\*?$",
+        }
+        return re.compile(patrones.get(nombre, self._patron_texto(nombre).pattern), re.I)
+
+    def _normalizar_texto(self, texto: str) -> str:
+        return re.sub(r"[^a-z0-9]+", "_", texto.lower()).strip("_")
+
+    def _valor_omitido(self, valor: str) -> bool:
+        valor_normalizado = valor.strip()
+        if valor_normalizado == "":
+            return True
+        try:
+            return float(valor_normalizado) == 0
+        except ValueError:
+            return False

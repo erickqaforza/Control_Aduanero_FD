@@ -43,3 +43,22 @@ Feature: Control Aduanero FD
       | El Salvador | GTQ    |
       | El Salvador | USD    |
       | El Salvador | HNL    |
+
+  @guia_madre @guia_madre_negativo @control_aduanero
+  Scenario Outline: Validar campo obligatorio en guia madre
+    Given el usuario abre Control Aduanero FD
+    When el usuario inicia sesion en el pais "Guatemala"
+    And acepta el modal informativo
+    And intenta crear una guia madre sin completar el campo "<campo>"
+    Then debe validar que el campo "<campo>" es obligatorio
+
+    Examples:
+      | campo                         |
+      | No. Guia                      |
+      | Numero de vuelo               |
+      | Origen                        |
+      | Destino                       |
+      | Total cajas                   |
+      | Total de guias individuales   |
+      | Peso declarado                |
+      | Valor declarado               |

@@ -168,6 +168,36 @@ def validar_guia_madre_creada(
     control_aduanero_page.validar_guia_madre_creada(guia_madre.numero_guia)
 
 
+@when(parsers.parse('intenta crear una guia madre sin completar el campo "{campo}"'))
+def intentar_crear_guia_madre_sin_campo(
+    control_aduanero_page: ControlAduaneroPage,
+    contexto_aduana: dict,
+    campo: str,
+):
+    pais = contexto_aduana.get("pais", "Guatemala")
+    guia_madre = generar_guia_madre("GTQ")
+    contexto_aduana["guia_madre"] = guia_madre
+    contexto_aduana["campo_obligatorio"] = campo
+
+    allure.dynamic.title(f"Validar campo obligatorio - Guia madre - {campo}")
+    allure.dynamic.feature("Guias madre")
+    allure.dynamic.story("Validar campos obligatorios")
+    allure.dynamic.suite("Control Aduanero FD")
+    allure.dynamic.sub_suite("Manifiestos")
+    allure.dynamic.severity(allure.severity_level.NORMAL)
+    allure.dynamic.parameter("pais", pais)
+    allure.dynamic.parameter("campo_obligatorio", campo)
+    allure.dynamic.parameter("moneda", guia_madre.moneda)
+
+    control_aduanero_page.abrir_formulario_guia_madre()
+    control_aduanero_page.intentar_crear_guia_madre_sin_campo(guia_madre, campo)
+
+
+@then(parsers.parse('debe validar que el campo "{campo}" es obligatorio'))
+def validar_campo_obligatorio(control_aduanero_page: ControlAduaneroPage, campo: str):
+    control_aduanero_page.validar_campo_obligatorio(campo)
+
+
 def generar_guia_madre(moneda: str) -> GuiaMadre:
     origenes_destinos = ["GT", "HN", "RC", "MIAMI", "FRA"]
     origen = random.choice(origenes_destinos)
