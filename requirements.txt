@@ -1,0 +1,8 @@
+pytest
+pytest-bdd
+pytest-base-url
+playwright
+allure-pytest
+python-dotenv
+requests
+openpyxl
