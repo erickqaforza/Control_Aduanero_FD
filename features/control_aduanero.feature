@@ -23,3 +23,17 @@ Feature: Control Aduanero FD
       | tipo_error            |
       | correo_incorrecto     |
       | contrasena_incorrecta |
+
+  @guia_madre @control_aduanero
+  Scenario Outline: Crear guia madre por moneda
+    Given el usuario abre Control Aduanero FD
+    When el usuario inicia sesion en el pais "Guatemala"
+    And acepta el modal informativo
+    And crea una guia madre con moneda "<moneda>"
+    Then debe visualizar el mensaje de guia madre creada
+
+    Examples:
+      | moneda |
+      | GTQ    |
+      | USD    |
+      | HNL    |

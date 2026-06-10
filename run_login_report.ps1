@@ -1,5 +1,6 @@
 param(
     [string]$Marker = "login",
+    [string]$ReportName = "",
     [switch]$OpenReport,
     [switch]$SkipTests
 )
@@ -9,7 +10,10 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $PythonExe = Join-Path $ProjectRoot ".venv\Scripts\python.exe"
 $AllureResults = Join-Path $ProjectRoot "allure-results"
-$AllureReport = Join-Path $ProjectRoot "allure-reports\login"
+if (-not $ReportName) {
+    $ReportName = $Marker
+}
+$AllureReport = Join-Path $ProjectRoot "allure-reports\$ReportName"
 
 function Resolve-AllureCommand {
     $localAllure = Get-ChildItem -Path (Join-Path $ProjectRoot "tools") -Filter "allure.bat" -Recurse -ErrorAction SilentlyContinue |

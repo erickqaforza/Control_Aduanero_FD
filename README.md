@@ -67,10 +67,16 @@ Ejecutar login, generar reporte y abrirlo:
 .\run_login_report.ps1 -OpenReport
 ```
 
+Ejecutar creación de guía madre y generar reporte:
+
+```powershell
+.\run_login_report.ps1 -Marker guia_madre
+```
+
 El reporte HTML se genera en:
 
 ```text
-allure-reports/login/
+allure-reports/<marker>/
 ```
 
 El script genera el reporte en modo `single-file`, por lo que puede abrirse directamente desde:
