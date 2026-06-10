@@ -55,6 +55,24 @@ Ejecutar pruebas smoke:
 .\.venv\Scripts\python.exe -m pytest -m smoke -s
 ```
 
+Ejecutar login y generar reporte Allure:
+
+```powershell
+.\run_login_report.ps1
+```
+
+Ejecutar login, generar reporte y abrirlo:
+
+```powershell
+.\run_login_report.ps1 -OpenReport
+```
+
+El reporte HTML se genera en:
+
+```text
+allure-reports/login/
+```
+
 ## Convenciones
 
 - Los localizadores y acciones de pantalla viven en `pages/`.
