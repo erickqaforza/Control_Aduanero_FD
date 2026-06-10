@@ -1,7 +1,14 @@
-# language: es
-Caracteristica: Control Aduanero FD
+Feature: Control Aduanero FD
 
-  @smoke @control_aduanero
-  Escenario: Abrir la pagina principal
-    Dado el usuario abre Control Aduanero FD
-    Entonces el titulo de la pagina debe ser "Control Aduanero FD"
+  @login @smoke @control_aduanero
+  Scenario Outline: Login exitoso por pais
+    Given el usuario abre Control Aduanero FD
+    When el usuario inicia sesion en el pais "<pais>"
+    And acepta el modal informativo
+    Then debe visualizar la pantalla de guias madre para el usuario "Erick Estrada"
+
+    Examples:
+      | pais        |
+      | Guatemala   |
+      | Honduras    |
+      | El Salvador |
