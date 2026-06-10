@@ -28,6 +28,7 @@ playwright-report/
 # Playwright tracing
 trace_*.zip
 trace_tests/
+videos/
 
 # Generated artifacts
 *.tmp

@@ -85,6 +85,23 @@ El script genera el reporte en modo `single-file`, por lo que puede abrirse dire
 allure-reports/login/index.html
 ```
 
+## Evidencias en video
+
+Cada escenario graba un video `.webm` cuando `RECORD_VIDEO=true` en `.env`.
+
+```env
+RECORD_VIDEO=true
+VIDEO_DIR=videos
+```
+
+Los videos se guardan localmente en:
+
+```text
+videos/
+```
+
+Tambien se adjuntan al reporte Allure como evidencia del flujo ejecutado.
+
 ## Convenciones
 
 - Los localizadores y acciones de pantalla viven en `pages/`.
