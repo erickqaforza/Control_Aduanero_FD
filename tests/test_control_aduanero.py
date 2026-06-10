@@ -2,6 +2,7 @@ import os
 import random
 import string
 
+import allure
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
@@ -29,7 +30,13 @@ def validar_titulo(control_aduanero_page: ControlAduaneroPage, titulo: str):
 
 
 @when(parsers.parse('el usuario inicia sesion en el pais "{pais}"'))
-def iniciar_sesion(control_aduanero_page: ControlAduaneroPage, pais: str):
+def iniciar_sesion(
+    control_aduanero_page: ControlAduaneroPage,
+    contexto_aduana: dict,
+    pais: str,
+):
+    contexto_aduana["pais"] = pais
+    allure.dynamic.parameter("pais", pais)
     usuario = os.getenv("CONTROL_ADUANERO_USER")
     password = os.getenv("CONTROL_ADUANERO_PASSWORD")
     if not usuario or not password:
@@ -42,9 +49,19 @@ def iniciar_sesion(control_aduanero_page: ControlAduaneroPage, pais: str):
 @when(parsers.parse('el usuario intenta iniciar sesion en el pais "{pais}" con "{tipo_error}"'))
 def iniciar_sesion_credenciales_invalidas(
     control_aduanero_page: ControlAduaneroPage,
+    contexto_aduana: dict,
     pais: str,
     tipo_error: str,
 ):
+    contexto_aduana["pais"] = pais
+    allure.dynamic.title(f"Login fallido - {tipo_error}")
+    allure.dynamic.feature("Login")
+    allure.dynamic.story("Validar credenciales invalidas")
+    allure.dynamic.suite("Control Aduanero FD")
+    allure.dynamic.severity(allure.severity_level.NORMAL)
+    allure.dynamic.parameter("pais", pais)
+    allure.dynamic.parameter("tipo_error", tipo_error)
+
     usuario = os.getenv("CONTROL_ADUANERO_USER")
     password = os.getenv("CONTROL_ADUANERO_PASSWORD")
     if not usuario or not password:
@@ -79,7 +96,17 @@ def aceptar_modal(control_aduanero_page: ControlAduaneroPage):
 
 
 @then(parsers.parse('debe visualizar la pantalla de guias madre para el usuario "{nombre_usuario}"'))
-def validar_login_exitoso(control_aduanero_page: ControlAduaneroPage, nombre_usuario: str):
+def validar_login_exitoso(
+    control_aduanero_page: ControlAduaneroPage,
+    contexto_aduana: dict,
+    nombre_usuario: str,
+):
+    pais = contexto_aduana.get("pais", "Guatemala")
+    allure.dynamic.title(f"Login exitoso - {pais}")
+    allure.dynamic.feature("Login")
+    allure.dynamic.story("Login exitoso por pais")
+    allure.dynamic.suite("Control Aduanero FD")
+    allure.dynamic.severity(allure.severity_level.CRITICAL)
     control_aduanero_page.validar_login_exitoso(nombre_usuario)
 
 
@@ -94,8 +121,40 @@ def crear_guia_madre(
     contexto_aduana: dict,
     moneda: str,
 ):
+    pais = contexto_aduana.get("pais", "Guatemala")
     guia_madre = generar_guia_madre(moneda)
     contexto_aduana["guia_madre"] = guia_madre
+    allure.dynamic.title(f"Crear guia madre - {pais} - {moneda}")
+    allure.dynamic.feature("Guias madre")
+    allure.dynamic.story("Crear guia madre por pais y moneda")
+    allure.dynamic.suite("Control Aduanero FD")
+    allure.dynamic.sub_suite("Manifiestos")
+    allure.dynamic.severity(allure.severity_level.CRITICAL)
+    allure.dynamic.parameter("pais", pais)
+    allure.dynamic.parameter("moneda", moneda)
+    allure.dynamic.parameter("numero_guia", guia_madre.numero_guia)
+    allure.dynamic.parameter("numero_vuelo", guia_madre.numero_vuelo)
+    allure.dynamic.parameter("origen", guia_madre.origen)
+    allure.dynamic.parameter("destino", guia_madre.destino)
+    allure.dynamic.parameter("valor_declarado", guia_madre.valor_declarado)
+
+    allure.attach(
+        (
+            f"Pais: {pais}\n"
+            f"Moneda: {moneda}\n"
+            f"No. Guia: {guia_madre.numero_guia}\n"
+            f"Numero de vuelo: {guia_madre.numero_vuelo}\n"
+            f"Origen: {guia_madre.origen}\n"
+            f"Destino: {guia_madre.destino}\n"
+            f"Total cajas: {guia_madre.total_cajas}\n"
+            f"Total guias individuales: {guia_madre.total_guias_individuales}\n"
+            f"Peso declarado: {guia_madre.peso_declarado}\n"
+            f"Valor declarado: {guia_madre.valor_declarado}\n"
+        ),
+        name="Datos de guia madre",
+        attachment_type=allure.attachment_type.TEXT,
+    )
+
     control_aduanero_page.abrir_formulario_guia_madre()
     control_aduanero_page.crear_guia_madre(guia_madre)
 

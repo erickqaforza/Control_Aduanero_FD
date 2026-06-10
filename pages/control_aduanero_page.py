@@ -39,7 +39,6 @@ class ControlAduaneroPage:
         expect(self.page).to_have_title(titulo_esperado, timeout=30000)
         self._take_screenshot("validar_titulo")
 
-    @allure.step("Iniciar sesion")
     def login(self, pais: str, usuario: str, password: str) -> None:
         self.seleccionar_pais(pais)
         self.page.get_by_role("textbox", name=re.compile("correo|email", re.I)).fill(usuario)
