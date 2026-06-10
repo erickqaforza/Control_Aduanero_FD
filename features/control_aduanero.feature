@@ -12,3 +12,14 @@ Feature: Control Aduanero FD
       | Guatemala   |
       | Honduras    |
       | El Salvador |
+
+  @login @login_negativo @control_aduanero
+  Scenario Outline: Login fallido por credenciales invalidas
+    Given el usuario abre Control Aduanero FD
+    When el usuario intenta iniciar sesion en el pais "Guatemala" con "<tipo_error>"
+    Then debe visualizar un mensaje de credenciales invalidas
+
+    Examples:
+      | tipo_error            |
+      | correo_incorrecto     |
+      | contrasena_incorrecta |

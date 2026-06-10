@@ -60,3 +60,14 @@ class ControlAduaneroPage:
         expect(self.page.get_by_text("Manifiestos", exact=True)).to_be_visible()
         expect(self.page.get_by_text(nombre_usuario, exact=True)).to_be_visible()
         self._take_screenshot("login_exitoso")
+
+    @allure.step("Validar mensaje de credenciales invalidas")
+    def validar_credenciales_invalidas(self) -> None:
+        mensaje_error = re.compile(
+            "credenciales|incorrect|inv[aá]lid|usuario|contrase|correo|error",
+            re.I,
+        )
+        posibles_mensajes = self.page.get_by_text(mensaje_error)
+        expect(posibles_mensajes.first).to_be_visible(timeout=30000)
+        expect(self.page.get_by_role("heading", name=re.compile("gu[ií]as madre", re.I))).not_to_be_visible()
+        self._take_screenshot("credenciales_invalidas")
