@@ -1,6 +1,7 @@
 param(
     [string]$Marker = "login",
-    [switch]$OpenReport
+    [switch]$OpenReport,
+    [switch]$SkipTests
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,13 +32,20 @@ if (-not (Test-Path $PythonExe)) {
     throw "No existe el ambiente virtual. Ejecuta: python -m venv .venv"
 }
 
-if (Test-Path $AllureResults) {
+if ((Test-Path $AllureResults) -and -not $SkipTests) {
     Remove-Item -LiteralPath $AllureResults -Recurse -Force
 }
 
-Write-Host "Ejecutando pruebas con marker: $Marker"
-& $PythonExe -m pytest -m $Marker -s
-$pytestExitCode = $LASTEXITCODE
+if ($SkipTests) {
+    if (-not (Test-Path $AllureResults)) {
+        throw "No existe allure-results. Ejecuta el script sin -SkipTests primero."
+    }
+    $pytestExitCode = 0
+} else {
+    Write-Host "Ejecutando pruebas con marker: $Marker"
+    & $PythonExe -m pytest -m $Marker -s
+    $pytestExitCode = $LASTEXITCODE
+}
 
 $allureCommand = Resolve-AllureCommand
 if (-not $allureCommand) {
@@ -47,7 +55,7 @@ if (-not $allureCommand) {
 }
 
 Write-Host "Generando reporte Allure en: $AllureReport"
-& $allureCommand generate $AllureResults --clean -o $AllureReport
+& $allureCommand generate $AllureResults --single-file --clean -o $AllureReport
 
 if ($OpenReport) {
     & $allureCommand open $AllureReport

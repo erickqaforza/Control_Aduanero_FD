@@ -73,6 +73,12 @@ El reporte HTML se genera en:
 allure-reports/login/
 ```
 
+El script genera el reporte en modo `single-file`, por lo que puede abrirse directamente desde:
+
+```text
+allure-reports/login/index.html
+```
+
 ## Convenciones
 
 - Los localizadores y acciones de pantalla viven en `pages/`.
