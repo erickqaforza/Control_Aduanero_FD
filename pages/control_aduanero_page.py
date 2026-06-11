@@ -152,6 +152,53 @@ class ControlAduaneroPage:
         expect(self.page.get_by_role("button", name=re.compile("crear gu[ií]a madre", re.I))).to_be_visible()
         self._take_screenshot(f"campo_obligatorio_{self._normalizar_texto(campo)}")
 
+    @allure.step("Entregar primera guia madre disponible a aduana")
+    def entregar_primera_guia_madre_disponible(self) -> str:
+        self.page.get_by_role("heading", name=re.compile("gu[ií]as madre", re.I)).wait_for(timeout=30000)
+        filas = self.page.locator("tbody tr")
+        total_filas = filas.count()
+        if total_filas == 0:
+            raise AssertionError("No hay guias madre disponibles en la tabla.")
+
+        for indice in range(total_filas):
+            fila = filas.nth(indice)
+            boton = fila.get_by_role("button", name=re.compile("entregar a aduana", re.I))
+            if boton.count() == 0:
+                continue
+            if boton.first.is_disabled():
+                continue
+
+            numero_guia = fila.locator("td").first.inner_text().strip()
+            estado_previo = fila.get_by_text(re.compile("arribo al pa[ií]s", re.I))
+            expect(estado_previo).to_be_visible(timeout=10000)
+            self._take_screenshot(f"entrega_aduana_previo_{self._normalizar_texto(numero_guia)}")
+
+            boton.first.click()
+            self._confirmar_entrega_aduana()
+            self._take_screenshot(f"entrega_aduana_realizada_{self._normalizar_texto(numero_guia)}")
+            return numero_guia
+
+        raise AssertionError("No se encontro una guia madre con boton 'Entregar a aduana' habilitado.")
+
+    @allure.step("Validar estado de guia madre")
+    def validar_estado_guia_madre(self, numero_guia: str, estado: str) -> None:
+        fila = self.page.locator("tbody tr").filter(has_text=numero_guia).first
+        expect(fila).to_be_visible(timeout=30000)
+        expect(fila.get_by_text(re.compile(re.escape(estado), re.I))).to_be_visible(timeout=30000)
+        self._take_screenshot(f"estado_{self._normalizar_texto(estado)}_{self._normalizar_texto(numero_guia)}")
+
+    def _confirmar_entrega_aduana(self) -> None:
+        boton_cambiar_estado = self.page.get_by_role("button", name=re.compile("cambiar estado", re.I))
+        expect(boton_cambiar_estado).to_be_visible(timeout=30000)
+        self._take_screenshot("modal_entrega_aduana")
+        boton_cambiar_estado.click()
+
+        boton_entendido = self.page.get_by_role("button", name=re.compile("entendido", re.I))
+        expect(boton_entendido).to_be_visible(timeout=30000)
+        self._take_screenshot("modal_entrega_aduana_exito")
+        boton_entendido.click()
+        self.page.wait_for_load_state("networkidle")
+
     def _llenar_campo(self, nombre: str, valor: str) -> None:
         self._obtener_campo(nombre).first.fill(valor)
 

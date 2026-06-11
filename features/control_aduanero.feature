@@ -62,3 +62,11 @@ Feature: Control Aduanero FD
       | Total de guias individuales   |
       | Peso declarado                |
       | Valor declarado               |
+
+  @entrega_aduana @control_aduanero
+  Scenario: Entregar guia madre a aduana
+    Given el usuario abre Control Aduanero FD
+    When el usuario inicia sesion en el pais "Guatemala"
+    And acepta el modal informativo
+    And entrega a aduana la primera guia madre disponible
+    Then debe visualizar la guia madre en estado "Arribo a aduana"

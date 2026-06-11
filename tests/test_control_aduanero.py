@@ -198,6 +198,35 @@ def validar_campo_obligatorio(control_aduanero_page: ControlAduaneroPage, campo:
     control_aduanero_page.validar_campo_obligatorio(campo)
 
 
+@when("entrega a aduana la primera guia madre disponible")
+def entregar_guia_madre_a_aduana(
+    control_aduanero_page: ControlAduaneroPage,
+    contexto_aduana: dict,
+):
+    pais = contexto_aduana.get("pais", "Guatemala")
+    allure.dynamic.title(f"Entregar guia madre a aduana - {pais}")
+    allure.dynamic.feature("Guias madre")
+    allure.dynamic.story("Entrega a aduana")
+    allure.dynamic.suite("Control Aduanero FD")
+    allure.dynamic.sub_suite("Manifiestos")
+    allure.dynamic.severity(allure.severity_level.CRITICAL)
+    allure.dynamic.parameter("pais", pais)
+
+    numero_guia = control_aduanero_page.entregar_primera_guia_madre_disponible()
+    contexto_aduana["numero_guia_entregada"] = numero_guia
+    allure.dynamic.parameter("numero_guia", numero_guia)
+
+
+@then(parsers.parse('debe visualizar la guia madre en estado "{estado}"'))
+def validar_entrega_aduana(
+    control_aduanero_page: ControlAduaneroPage,
+    contexto_aduana: dict,
+    estado: str,
+):
+    numero_guia = contexto_aduana["numero_guia_entregada"]
+    control_aduanero_page.validar_estado_guia_madre(numero_guia, estado)
+
+
 def generar_guia_madre(moneda: str) -> GuiaMadre:
     origenes_destinos = ["GT", "HN", "RC", "MIAMI", "FRA"]
     origen = random.choice(origenes_destinos)
