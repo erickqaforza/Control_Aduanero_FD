@@ -13,11 +13,17 @@ scenarios("../features/control_aduanero.feature")
 
 @pytest.fixture
 def contexto_aduana():
+    """Estado compartido del escenario BDD.
+
+    Permite pasar datos generados entre steps, por ejemplo la guia madre creada
+    o el numero de guia que se entrego a aduana.
+    """
     return {}
 
 
 @given("el usuario abre Control Aduanero FD")
 def abrir_control_aduanero(control_aduanero_page: ControlAduaneroPage):
+    """Abre la URL configurada en .env para iniciar cualquier flujo."""
     url = os.getenv("BASE_URL")
     if not url:
         raise ValueError("Configura BASE_URL en el archivo .env")
@@ -35,6 +41,7 @@ def iniciar_sesion(
     contexto_aduana: dict,
     pais: str,
 ):
+    """Inicia sesion con credenciales del .env y registra el pais del escenario."""
     contexto_aduana["pais"] = pais
     allure.dynamic.parameter("pais", pais)
     usuario = os.getenv("CONTROL_ADUANERO_USER")
@@ -53,6 +60,7 @@ def iniciar_sesion_credenciales_invalidas(
     pais: str,
     tipo_error: str,
 ):
+    """Ejecuta combinaciones negativas de login sin exponer credenciales reales."""
     contexto_aduana["pais"] = pais
     allure.dynamic.title(f"Login fallido - {tipo_error}")
     allure.dynamic.feature("Login")
@@ -121,6 +129,7 @@ def crear_guia_madre(
     contexto_aduana: dict,
     moneda: str,
 ):
+    """Genera datos validos y crea una guia madre para la moneda solicitada."""
     pais = contexto_aduana.get("pais", "Guatemala")
     guia_madre = generar_guia_madre(moneda)
     contexto_aduana["guia_madre"] = guia_madre
@@ -174,6 +183,7 @@ def intentar_crear_guia_madre_sin_campo(
     contexto_aduana: dict,
     campo: str,
 ):
+    """Prepara una guia valida y omite un campo para validar obligatoriedad."""
     pais = contexto_aduana.get("pais", "Guatemala")
     guia_madre = generar_guia_madre("GTQ")
     contexto_aduana["guia_madre"] = guia_madre
@@ -203,6 +213,7 @@ def entregar_guia_madre_a_aduana(
     control_aduanero_page: ControlAduaneroPage,
     contexto_aduana: dict,
 ):
+    """Entrega a aduana la primera guia madre disponible para el pais logueado."""
     pais = contexto_aduana.get("pais", "Guatemala")
     allure.dynamic.title(f"Entregar guia madre a aduana - {pais}")
     allure.dynamic.feature("Guias madre")
@@ -228,6 +239,7 @@ def validar_entrega_aduana(
 
 
 def generar_guia_madre(moneda: str) -> GuiaMadre:
+    """Construye datos dinamicos validos para evitar colisiones entre ejecuciones."""
     origenes_destinos = ["GT", "HN", "RC", "MIAMI", "FRA"]
     origen = random.choice(origenes_destinos)
     destino = random.choice([valor for valor in origenes_destinos if valor != origen])

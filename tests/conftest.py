@@ -14,6 +14,12 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 @pytest.fixture
 def page(base_url):
+    """Crea una pagina Playwright por escenario con evidencias habilitadas.
+
+    La fixture configura navegador, locale, trazas y video. Al finalizar cada
+    escenario adjunta el video al reporte Allure y deja los artefactos locales
+    para revision manual.
+    """
     project_root = Path(__file__).resolve().parent.parent
     browser_channel = os.getenv("BROWSER_CHANNEL", "msedge")
     headless = os.getenv("HEADLESS", "false").lower() == "true"
@@ -55,6 +61,7 @@ def page(base_url):
         context.tracing.stop(path=str(trace_path))
         context.close()
 
+        # Playwright solo materializa el video cuando el contexto ya fue cerrado.
         if record_video and test_page.video:
             video_path = Path(test_page.video.path())
             final_video_path = video_dir / f"{safe_test_name}.webm"
@@ -74,4 +81,5 @@ def page(base_url):
 
 @pytest.fixture
 def control_aduanero_page(page):
+    """Entrega el Page Object principal a los steps BDD."""
     return ControlAduaneroPage(page)
