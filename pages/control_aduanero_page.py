@@ -2,7 +2,7 @@ import re
 from dataclasses import dataclass
 
 import allure
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError, expect
 
 
 @dataclass
@@ -118,7 +118,7 @@ class ControlAduaneroPage:
         self._llenar_campo("Valor declarado", guia_madre.valor_declarado)
         self._seleccionar_moneda(guia_madre.moneda)
         self._take_screenshot(f"datos_guia_madre_{guia_madre.moneda}")
-        self.page.get_by_role("button", name=re.compile("crear gu[ií]a madre", re.I)).click()
+        self._click_boton_crear_guia_madre()
 
     @allure.step("Intentar crear guia madre omitiendo campo obligatorio")
     def intentar_crear_guia_madre_sin_campo(self, guia_madre: GuiaMadre, campo_omitido: str) -> None:
@@ -144,7 +144,7 @@ class ControlAduaneroPage:
 
         self._seleccionar_moneda(guia_madre.moneda)
         self._take_screenshot(f"guia_madre_sin_{self._normalizar_texto(campo_omitido)}")
-        self.page.get_by_role("button", name=re.compile("crear gu[ií]a madre", re.I)).click()
+        self._click_boton_crear_guia_madre()
 
     @allure.step("Validar guia madre creada")
     def validar_guia_madre_creada(self, numero_guia: str) -> None:
@@ -228,6 +228,19 @@ class ControlAduaneroPage:
 
     def _llenar_campo(self, nombre: str, valor: str) -> None:
         self._obtener_campo(nombre).first.fill(valor)
+
+    def _click_boton_crear_guia_madre(self) -> None:
+        """Presiona el boton de creacion aunque el modal quede fuera del viewport.
+
+        En ejecuciones headless el modal puede renderizarse con una altura menor
+        que en la demo visual, dejando el boton fuera del area accionable.
+        """
+        boton = self.page.get_by_role("button", name=re.compile("crear gu[ií]a madre", re.I)).first
+        try:
+            boton.scroll_into_view_if_needed(timeout=10000)
+            boton.click(timeout=30000)
+        except PlaywrightTimeoutError:
+            boton.click(timeout=30000, force=True)
 
     def _obtener_campo(self, nombre: str):
         """Obtiene un campo del formulario por label, role o placeholder."""
