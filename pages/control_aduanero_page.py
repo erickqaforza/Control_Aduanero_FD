@@ -1,8 +1,9 @@
 import re
 from dataclasses import dataclass
+from pathlib import Path
 
 import allure
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError, expect
 
 
 @dataclass
@@ -16,6 +17,14 @@ class GuiaMadre:
     peso_declarado: str
     valor_declarado: str
     moneda: str
+
+
+@dataclass
+class Consolidado:
+    selectivo: str
+    nombre: str
+    descripcion: str
+    archivo: Path
 
 
 class ControlAduaneroPage:
@@ -105,7 +114,7 @@ class ControlAduaneroPage:
         self._llenar_campo("Valor declarado", guia_madre.valor_declarado)
         self._seleccionar_moneda(guia_madre.moneda)
         self._take_screenshot(f"datos_guia_madre_{guia_madre.moneda}")
-        self.page.get_by_role("button", name=re.compile("crear gu[ií]a madre", re.I)).click()
+        self._click_boton_crear_guia_madre()
 
     @allure.step("Intentar crear guia madre omitiendo campo obligatorio")
     def intentar_crear_guia_madre_sin_campo(self, guia_madre: GuiaMadre, campo_omitido: str) -> None:
@@ -126,7 +135,7 @@ class ControlAduaneroPage:
 
         self._seleccionar_moneda(guia_madre.moneda)
         self._take_screenshot(f"guia_madre_sin_{self._normalizar_texto(campo_omitido)}")
-        self.page.get_by_role("button", name=re.compile("crear gu[ií]a madre", re.I)).click()
+        self._click_boton_crear_guia_madre()
 
     @allure.step("Validar guia madre creada")
     def validar_guia_madre_creada(self, numero_guia: str) -> None:
@@ -187,6 +196,56 @@ class ControlAduaneroPage:
         expect(fila.get_by_text(re.compile(re.escape(estado), re.I))).to_be_visible(timeout=30000)
         self._take_screenshot(f"estado_{self._normalizar_texto(estado)}_{self._normalizar_texto(numero_guia)}")
 
+    @allure.step("Abrir detalle de guia madre en arribo a aduana")
+    def abrir_detalle_primera_guia_en_arribo_aduana(self) -> str:
+        self.page.get_by_role("heading", name=re.compile("gu[ií]as madre", re.I)).wait_for(timeout=30000)
+        filas = self.page.locator("tbody tr")
+        total_filas = filas.count()
+        if total_filas == 0:
+            raise AssertionError("No hay guias madre disponibles en la tabla.")
+
+        for indice in range(total_filas):
+            fila = filas.nth(indice)
+            if fila.get_by_text(re.compile("arribo a aduana", re.I)).count() == 0:
+                continue
+
+            numero_guia = fila.locator("td").first.inner_text().strip()
+            boton_detalle = fila.locator("td").nth(9).locator("button").first
+            if boton_detalle.count() == 0:
+                boton_detalle = fila.locator("button").first
+            expect(boton_detalle).to_be_visible(timeout=10000)
+            self._take_screenshot(f"detalle_previo_{self._normalizar_texto(numero_guia)}")
+            boton_detalle.click()
+            expect(self.page.get_by_role("button", name=re.compile("agregar consolidado", re.I))).to_be_visible(
+                timeout=30000
+            )
+            self._take_screenshot(f"detalle_guia_{self._normalizar_texto(numero_guia)}")
+            return numero_guia
+
+        raise AssertionError("No se encontro una guia madre en estado 'Arribo a aduana'.")
+
+    @allure.step("Agregar consolidado")
+    def agregar_consolidado(self, consolidado: Consolidado) -> None:
+        if not consolidado.archivo.exists():
+            raise AssertionError(f"No existe el archivo de consolidado: {consolidado.archivo}")
+
+        self.page.get_by_role("button", name=re.compile("agregar consolidado", re.I)).click(timeout=30000)
+        expect(self.page.get_by_role("button", name=re.compile("cargar consolidado", re.I))).to_be_visible(
+            timeout=30000
+        )
+        self._seleccionar_selectivo(consolidado.selectivo)
+        self._llenar_campo("Nombre consolidado", consolidado.nombre)
+        self._llenar_campo("Descripcion", consolidado.descripcion)
+        self._cargar_archivo_consolidado(consolidado.archivo)
+        self._take_screenshot(f"consolidado_{self._normalizar_texto(consolidado.selectivo)}")
+        self._click_boton_cargar_consolidado()
+        self._confirmar_modal_entendido("consolidado_cargado")
+
+    @allure.step("Validar consolidado cargado")
+    def validar_consolidado_cargado(self, consolidado: Consolidado) -> None:
+        expect(self.page.get_by_text(re.compile(re.escape(consolidado.nombre), re.I))).to_be_visible(timeout=30000)
+        self._take_screenshot(f"validar_consolidado_{self._normalizar_texto(consolidado.selectivo)}")
+
     def _confirmar_entrega_aduana(self) -> None:
         boton_cambiar_estado = self.page.get_by_role("button", name=re.compile("cambiar estado", re.I))
         expect(boton_cambiar_estado).to_be_visible(timeout=30000)
@@ -201,6 +260,74 @@ class ControlAduaneroPage:
 
     def _llenar_campo(self, nombre: str, valor: str) -> None:
         self._obtener_campo(nombre).first.fill(valor)
+
+    def _click_boton_crear_guia_madre(self) -> None:
+        boton = self.page.get_by_role("button", name=re.compile("crear gu[ií]a madre", re.I)).first
+        try:
+            boton.scroll_into_view_if_needed(timeout=10000)
+            boton.click(timeout=30000)
+        except PlaywrightTimeoutError:
+            boton.click(timeout=30000, force=True)
+
+    def _click_boton_cargar_consolidado(self) -> None:
+        boton = self.page.get_by_role("button", name=re.compile("cargar consolidado", re.I)).first
+        try:
+            boton.scroll_into_view_if_needed(timeout=10000)
+            boton.click(timeout=30000)
+        except PlaywrightTimeoutError:
+            boton.click(timeout=30000, force=True)
+
+    def _confirmar_modal_entendido(self, nombre_captura: str) -> None:
+        boton_entendido = self.page.get_by_role("button", name=re.compile("entendido", re.I))
+        expect(boton_entendido).to_be_visible(timeout=30000)
+        self._take_screenshot(nombre_captura)
+        boton_entendido.click()
+        self.page.wait_for_load_state("networkidle")
+
+    def _seleccionar_selectivo(self, selectivo: str) -> None:
+        patron_label = re.compile("selectivo.*cargar|selectivo.*carga", re.I)
+        combo = self.page.get_by_label(patron_label)
+        if combo.count() == 0:
+            combo = self.page.get_by_role("combobox", name=patron_label)
+        if combo.count() > 0:
+            try:
+                selected = combo.first.evaluate(
+                    """
+                    (select, optionText) => {
+                        if (!select.options) {
+                            return false;
+                        }
+                        const option = [...select.options].find((item) =>
+                            item.textContent.toLowerCase().includes(optionText.toLowerCase()) ||
+                            item.value.toLowerCase().includes(optionText.toLowerCase())
+                        );
+                        if (!option) {
+                            return false;
+                        }
+                        select.value = option.value;
+                        select.dispatchEvent(new Event('input', { bubbles: true }));
+                        select.dispatchEvent(new Event('change', { bubbles: true }));
+                        return true;
+                    }
+                    """,
+                    selectivo,
+                )
+                if selected:
+                    return
+            except Exception:
+                combo.first.click()
+
+        self.page.get_by_text(re.compile("selectivo.*cargar|selectivo.*carga", re.I)).first.click(timeout=10000)
+        self.page.get_by_text(re.compile(selectivo, re.I)).click(timeout=10000)
+
+    def _cargar_archivo_consolidado(self, archivo: Path) -> None:
+        file_input = self.page.locator("input[type='file']").first
+        if file_input.count() == 0:
+            self.page.get_by_text(re.compile("arrastra tu documento|arrastre tu documento|documento hasta aqu[ií]", re.I)).click(
+                timeout=10000
+            )
+            file_input = self.page.locator("input[type='file']").first
+        file_input.set_input_files(str(archivo))
 
     def _obtener_campo(self, nombre: str):
         patron = self._patron_campo(nombre)
@@ -262,6 +389,8 @@ class ControlAduaneroPage:
             "Total de guias individuales": r"^Total\s+de\s+gu[ií]as\s+individuales\s*\*?$",
             "Peso declarado": r"^Peso\s+declarado(?:\s+en\s+KG)?\s*\*?$",
             "Valor declarado": r"^Valor\s+declarado\s*\*?$",
+            "Nombre consolidado": r"^Nombre\s+consolidado\s*\*?$",
+            "Descripcion": r"^Descripci[oó]n(?:\s+consolidado)?\s*\*?$",
         }
         return re.compile(patrones.get(nombre, self._patron_texto(nombre).pattern), re.I)
 

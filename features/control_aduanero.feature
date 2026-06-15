@@ -76,3 +76,18 @@ Feature: Control Aduanero FD
       | Guatemala   |
       | Honduras    |
       | El Salvador |
+
+  @agregar_consolidado @control_aduanero
+  Scenario Outline: Agregar consolidado por pais
+    Given el usuario abre Control Aduanero FD
+    When el usuario inicia sesion en el pais "<pais>"
+    And acepta el modal informativo
+    And abre el detalle de una guia madre en estado arribo a aduana
+    And agrega los consolidados verde rojo y amarillo
+    Then debe visualizar los consolidados cargados en el detalle
+
+    Examples:
+      | pais        |
+      | Guatemala   |
+      | Honduras    |
+      | El Salvador |

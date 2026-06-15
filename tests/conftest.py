@@ -33,10 +33,14 @@ def page(base_url):
         )
         context_options = {
             "base_url": base_url,
-            "no_viewport": True,
             "timezone_id": "America/Guatemala",
             "locale": "es-GT",
         }
+        if headless:
+            context_options["viewport"] = {"width": 1920, "height": 1080}
+        else:
+            context_options["no_viewport"] = True
+
         if record_video:
             context_options["record_video_dir"] = str(video_dir)
             context_options["record_video_size"] = {"width": 1920, "height": 1080}

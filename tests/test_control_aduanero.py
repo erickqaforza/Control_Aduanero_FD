@@ -1,12 +1,13 @@
 import os
 import random
 import string
+from pathlib import Path
 
 import allure
 import pytest
 from pytest_bdd import given, parsers, scenarios, then, when
 
-from pages.control_aduanero_page import ControlAduaneroPage, GuiaMadre
+from pages.control_aduanero_page import Consolidado, ControlAduaneroPage, GuiaMadre
 
 scenarios("../features/control_aduanero.feature")
 
@@ -227,6 +228,60 @@ def validar_entrega_aduana(
     control_aduanero_page.validar_estado_guia_madre(numero_guia, estado)
 
 
+@when("abre el detalle de una guia madre en estado arribo a aduana")
+def abrir_detalle_guia_arribo_aduana(
+    control_aduanero_page: ControlAduaneroPage,
+    contexto_aduana: dict,
+):
+    pais = contexto_aduana.get("pais", "Guatemala")
+    allure.dynamic.title(f"Agregar consolidados - {pais}")
+    allure.dynamic.feature("Guias madre")
+    allure.dynamic.story("Agregar consolidado")
+    allure.dynamic.suite("Control Aduanero FD")
+    allure.dynamic.sub_suite("Manifiestos")
+    allure.dynamic.severity(allure.severity_level.CRITICAL)
+    allure.dynamic.parameter("pais", pais)
+
+    numero_guia = control_aduanero_page.abrir_detalle_primera_guia_en_arribo_aduana()
+    contexto_aduana["numero_guia_consolidado"] = numero_guia
+    allure.dynamic.parameter("numero_guia", numero_guia)
+
+
+@when("agrega los consolidados verde rojo y amarillo")
+def agregar_consolidados(
+    control_aduanero_page: ControlAduaneroPage,
+    contexto_aduana: dict,
+):
+    consolidados = generar_consolidados()
+    contexto_aduana["consolidados"] = consolidados
+
+    for consolidado in consolidados:
+        allure.dynamic.parameter(
+            f"archivo_{consolidado.selectivo.lower()}",
+            consolidado.archivo.name,
+        )
+        allure.attach(
+            (
+                f"Selectivo: {consolidado.selectivo}\n"
+                f"Nombre: {consolidado.nombre}\n"
+                f"Descripcion: {consolidado.descripcion}\n"
+                f"Archivo: {consolidado.archivo}\n"
+            ),
+            name=f"Datos consolidado {consolidado.selectivo}",
+            attachment_type=allure.attachment_type.TEXT,
+        )
+        control_aduanero_page.agregar_consolidado(consolidado)
+
+
+@then("debe visualizar los consolidados cargados en el detalle")
+def validar_consolidados_cargados(
+    control_aduanero_page: ControlAduaneroPage,
+    contexto_aduana: dict,
+):
+    for consolidado in contexto_aduana["consolidados"]:
+        control_aduanero_page.validar_consolidado_cargado(consolidado)
+
+
 def generar_guia_madre(moneda: str) -> GuiaMadre:
     origenes_destinos = ["GT", "HN", "RC", "MIAMI", "FRA"]
     origen = random.choice(origenes_destinos)
@@ -251,3 +306,22 @@ def _alfanumerico(longitud: int) -> str:
 
 def _numero_4_digitos() -> str:
     return str(random.randint(1000, 9999))
+
+
+def generar_consolidados() -> list[Consolidado]:
+    archivos_dir = Path(os.getenv("CONSOLIDADO_FILES_DIR", Path.home() / "Downloads"))
+    descripcion = "Documento de prueba de automatizacion"
+    datos = [
+        ("Verde", "Archivo_de_prueba_con_una_hoja_verde.xlsx"),
+        ("Rojo", "Archivo_de_prueba_con_una_hoja_rojo.xlsx"),
+        ("Amarillo", "Archivo_de_prueba_con_una_hoja_amarillo.xlsx"),
+    ]
+    return [
+        Consolidado(
+            selectivo=selectivo,
+            nombre=f"Prueba de automatizacion_{indice}",
+            descripcion=descripcion,
+            archivo=archivos_dir / archivo,
+        )
+        for indice, (selectivo, archivo) in enumerate(datos, start=1)
+    ]
