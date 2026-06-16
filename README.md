@@ -85,6 +85,12 @@ Ejecutar despacho de cajas y generar reporte:
 .\run_login_report.ps1 -Marker despacho_cajas
 ```
 
+Ejecutar el flujo completo desde login hasta despacho y generar reporte:
+
+```powershell
+.\run_login_report.ps1 -Marker flujo_completo
+```
+
 Por defecto, el flujo de consolidado busca los archivos en `Downloads`. Si estan en otra ruta,
 configura la variable `CONSOLIDADO_FILES_DIR` en `.env`.
 

@@ -108,3 +108,29 @@ Feature: Control Aduanero FD
       | Guatemala   |
       | Honduras    |
       | El Salvador |
+
+  @flujo_completo @control_aduanero @smoke
+  Scenario Outline: Flujo completo Control Aduanero por pais
+    Given el usuario abre Control Aduanero FD
+    When el usuario inicia sesion en el pais "<pais>"
+    And acepta el modal informativo
+    And crea una guia madre de flujo completo con moneda "<moneda>"
+    Then debe visualizar el mensaje de guia madre creada
+    And debe visualizar la guia madre creada en estado "Arribo al país"
+    When entrega a aduana la guia madre creada
+    Then debe visualizar la guia madre creada en estado "Arribo a aduana"
+    When abre el detalle de la guia madre creada
+    And agrega los consolidados verde rojo y amarillo
+    Then debe visualizar los consolidados cargados en el detalle
+    And debe visualizar la guia madre creada en estado "Carga de selectivos"
+    When abre el detalle de la guia madre creada
+    And abre el detalle del primer consolidado disponible
+    And despacha las cajas del consolidado
+    Then debe visualizar la guia madre despachada en estado completado
+    And debe validar que agregar consolidado esta bloqueado
+
+    Examples:
+      | pais        | moneda |
+      | Guatemala   | GTQ    |
+      | Honduras    | HNL    |
+      | El Salvador | USD    |

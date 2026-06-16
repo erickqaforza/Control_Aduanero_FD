@@ -191,10 +191,33 @@ class ControlAduaneroPage:
 
     @allure.step("Validar estado de guia madre")
     def validar_estado_guia_madre(self, numero_guia: str, estado: str) -> None:
-        fila = self.page.locator("tbody tr").filter(has_text=numero_guia).first
+        fila = self._buscar_guia_madre_en_listado(numero_guia)
         expect(fila).to_be_visible(timeout=30000)
         expect(fila.get_by_text(re.compile(re.escape(estado), re.I))).to_be_visible(timeout=30000)
         self._take_screenshot(f"estado_{self._normalizar_texto(estado)}_{self._normalizar_texto(numero_guia)}")
+
+    @allure.step("Entregar guia madre creada a aduana")
+    def entregar_guia_madre_a_aduana(self, numero_guia: str) -> None:
+        fila = self._buscar_guia_madre_en_listado(numero_guia)
+        expect(fila.get_by_text(re.compile("arribo al pa[ií]s", re.I))).to_be_visible(timeout=30000)
+        boton = fila.get_by_role("button", name=re.compile("entregar a aduana", re.I)).first
+        expect(boton).to_be_enabled(timeout=30000)
+        self._take_screenshot(f"entrega_aduana_previo_{self._normalizar_texto(numero_guia)}")
+        boton.click()
+        self._confirmar_entrega_aduana()
+        self._take_screenshot(f"entrega_aduana_realizada_{self._normalizar_texto(numero_guia)}")
+
+    @allure.step("Abrir detalle de guia madre")
+    def abrir_detalle_guia_madre(self, numero_guia: str) -> None:
+        fila = self._buscar_guia_madre_en_listado(numero_guia)
+        boton_detalle = fila.locator("button").first
+        expect(boton_detalle).to_be_visible(timeout=30000)
+        self._take_screenshot(f"detalle_previo_{self._normalizar_texto(numero_guia)}")
+        boton_detalle.click()
+        expect(self.page.get_by_role("button", name=re.compile("agregar consolidado", re.I))).to_be_visible(
+            timeout=30000
+        )
+        self._take_screenshot(f"detalle_guia_{self._normalizar_texto(numero_guia)}")
 
     @allure.step("Abrir detalle de guia madre en arribo a aduana")
     def abrir_detalle_primera_guia_en_arribo_aduana(self) -> str:
@@ -274,6 +297,7 @@ class ControlAduaneroPage:
             nombre_consolidado = fila.locator("td").first.inner_text().strip()
             self._take_screenshot(f"detalle_consolidado_previo_{self._normalizar_texto(nombre_consolidado)}")
             boton_detalle.click()
+            self._esperar_carga_visual()
             boton_despachar = self.page.get_by_role("button", name=re.compile("^despachar$", re.I)).first
             expect(boton_despachar).to_be_visible(timeout=30000)
             if boton_despachar.is_disabled():
@@ -299,7 +323,10 @@ class ControlAduaneroPage:
             self._despachar_consolidado_actual()
 
     def _despachar_consolidado_actual(self) -> None:
-        self.page.get_by_role("button", name=re.compile("^despachar$", re.I)).click(timeout=30000)
+        self._esperar_carga_visual()
+        boton_despachar = self.page.get_by_role("button", name=re.compile("^despachar$", re.I)).first
+        expect(boton_despachar).to_be_enabled(timeout=30000)
+        boton_despachar.click(timeout=30000)
         boton_despachar_cajas = self.page.get_by_role("button", name=re.compile("despachar cajas", re.I))
         expect(boton_despachar_cajas).to_be_visible(timeout=30000)
         self._take_screenshot("modal_despachar_cajas")
@@ -318,16 +345,14 @@ class ControlAduaneroPage:
 
     @allure.step("Validar guia madre completada")
     def validar_guia_madre_completada(self, numero_guia: str) -> None:
-        self._regresar_hasta_guias_madre()
-        self.page.get_by_role("textbox", name=re.compile("buscar", re.I)).fill(numero_guia)
-        fila = self.page.locator("tbody tr").filter(has_text=numero_guia).first
+        fila = self._buscar_guia_madre_en_listado(numero_guia)
         expect(fila).to_be_visible(timeout=30000)
         expect(fila.get_by_text(re.compile("completado", re.I))).to_be_visible(timeout=30000)
         self._take_screenshot(f"guia_madre_completada_{self._normalizar_texto(numero_guia)}")
 
     @allure.step("Validar agregar consolidado bloqueado")
     def validar_agregar_consolidado_bloqueado(self, numero_guia: str) -> None:
-        fila = self.page.locator("tbody tr").filter(has_text=numero_guia).first
+        fila = self._buscar_guia_madre_en_listado(numero_guia)
         expect(fila).to_be_visible(timeout=30000)
         boton_detalle = fila.locator("button").first
         boton_detalle.click()
@@ -393,6 +418,19 @@ class ControlAduaneroPage:
 
         expect(self.page.get_by_role("heading", name=re.compile("gu[ií]as madre", re.I))).to_be_visible(timeout=30000)
 
+    def _buscar_guia_madre_en_listado(self, numero_guia: str):
+        self._regresar_hasta_guias_madre()
+        campo_buscar = self.page.get_by_role("textbox", name=re.compile("buscar", re.I)).first
+        expect(campo_buscar).to_be_visible(timeout=30000)
+        campo_buscar.fill(numero_guia)
+        boton_filtrar = self.page.get_by_role("button", name=re.compile("filtrar", re.I)).first
+        if boton_filtrar.count() > 0 and boton_filtrar.is_enabled():
+            boton_filtrar.click()
+            self.page.wait_for_load_state("networkidle")
+        fila = self.page.locator("tbody tr").filter(has_text=numero_guia).first
+        expect(fila).to_be_visible(timeout=30000)
+        return fila
+
     def _regresar_a_consolidados(self) -> None:
         boton_regresar = self.page.get_by_role("button", name=re.compile("regresar", re.I)).first
         if boton_regresar.count() == 0:
@@ -400,6 +438,7 @@ class ControlAduaneroPage:
         else:
             boton_regresar.click()
             self.page.wait_for_load_state("networkidle")
+        self._esperar_carga_visual()
         expect(self.page.get_by_role("button", name=re.compile("agregar consolidado", re.I))).to_be_visible(
             timeout=30000
         )
@@ -426,6 +465,15 @@ class ControlAduaneroPage:
             return True
 
         return False
+
+    def _esperar_carga_visual(self) -> None:
+        overlay = self.page.locator(".fullscreen-overlay")
+        if overlay.count() > 0:
+            try:
+                expect(overlay).to_be_hidden(timeout=30000)
+            except AssertionError:
+                pass
+        self.page.wait_for_load_state("networkidle")
 
     def _seleccionar_selectivo(self, selectivo: str) -> None:
         patron_label = re.compile("selectivo.*cargar|selectivo.*carga", re.I)

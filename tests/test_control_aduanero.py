@@ -332,6 +332,60 @@ def validar_agregar_consolidado_bloqueado(
     control_aduanero_page.validar_agregar_consolidado_bloqueado(contexto_aduana["numero_guia_despacho"])
 
 
+@when(parsers.parse('crea una guia madre de flujo completo con moneda "{moneda}"'))
+def crear_guia_madre_flujo_completo(
+    control_aduanero_page: ControlAduaneroPage,
+    contexto_aduana: dict,
+    moneda: str,
+):
+    pais = contexto_aduana.get("pais", "Guatemala")
+    guia_madre = generar_guia_madre(moneda)
+    contexto_aduana["guia_madre"] = guia_madre
+    contexto_aduana["numero_guia_despacho"] = guia_madre.numero_guia
+    allure.dynamic.title(f"Flujo completo Control Aduanero - {pais}")
+    allure.dynamic.feature("Flujo completo")
+    allure.dynamic.story("Login a despacho de cajas")
+    allure.dynamic.suite("Control Aduanero FD")
+    allure.dynamic.sub_suite("End to end")
+    allure.dynamic.severity(allure.severity_level.BLOCKER)
+    allure.dynamic.parameter("pais", pais)
+    allure.dynamic.parameter("moneda", moneda)
+    allure.dynamic.parameter("numero_guia", guia_madre.numero_guia)
+
+    control_aduanero_page.abrir_formulario_guia_madre()
+    control_aduanero_page.crear_guia_madre(guia_madre)
+
+
+@then(parsers.parse('debe visualizar la guia madre creada en estado "{estado}"'))
+def validar_estado_guia_madre_creada(
+    control_aduanero_page: ControlAduaneroPage,
+    contexto_aduana: dict,
+    estado: str,
+):
+    guia_madre = contexto_aduana["guia_madre"]
+    control_aduanero_page.validar_estado_guia_madre(guia_madre.numero_guia, estado)
+
+
+@when("entrega a aduana la guia madre creada")
+def entregar_guia_madre_creada_a_aduana(
+    control_aduanero_page: ControlAduaneroPage,
+    contexto_aduana: dict,
+):
+    guia_madre = contexto_aduana["guia_madre"]
+    control_aduanero_page.entregar_guia_madre_a_aduana(guia_madre.numero_guia)
+
+
+@when("abre el detalle de la guia madre creada")
+def abrir_detalle_guia_madre_creada(
+    control_aduanero_page: ControlAduaneroPage,
+    contexto_aduana: dict,
+):
+    guia_madre = contexto_aduana["guia_madre"]
+    contexto_aduana["numero_guia_consolidado"] = guia_madre.numero_guia
+    contexto_aduana["numero_guia_despacho"] = guia_madre.numero_guia
+    control_aduanero_page.abrir_detalle_guia_madre(guia_madre.numero_guia)
+
+
 def generar_guia_madre(moneda: str) -> GuiaMadre:
     origenes_destinos = ["GT", "HN", "RC", "MIAMI", "FRA"]
     origen = random.choice(origenes_destinos)
