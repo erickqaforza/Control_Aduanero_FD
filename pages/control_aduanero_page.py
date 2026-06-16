@@ -206,29 +206,35 @@ class ControlAduaneroPage:
 
     def _abrir_detalle_primera_guia_por_estado(self, estado: str) -> str:
         self.page.get_by_role("heading", name=re.compile("gu[ií]as madre", re.I)).wait_for(timeout=30000)
-        filas = self.page.locator("tbody tr")
-        total_filas = filas.count()
-        if total_filas == 0:
-            raise AssertionError("No hay guias madre disponibles en la tabla.")
-
         patron_estado = re.compile(re.escape(estado), re.I)
-        for indice in range(total_filas):
-            fila = filas.nth(indice)
-            if fila.get_by_text(patron_estado).count() == 0:
-                continue
+        paginas_revisadas = 0
+        while paginas_revisadas < 20:
+            filas = self.page.locator("tbody tr")
+            total_filas = filas.count()
+            if total_filas == 0:
+                raise AssertionError("No hay guias madre disponibles en la tabla.")
 
-            numero_guia = fila.locator("td").first.inner_text().strip()
-            boton_detalle = fila.locator("td").nth(9).locator("button").first
-            if boton_detalle.count() == 0:
-                boton_detalle = fila.locator("button").first
-            expect(boton_detalle).to_be_visible(timeout=10000)
-            self._take_screenshot(f"detalle_previo_{self._normalizar_texto(numero_guia)}")
-            boton_detalle.click()
-            expect(self.page.get_by_role("button", name=re.compile("agregar consolidado", re.I))).to_be_visible(
-                timeout=30000
-            )
-            self._take_screenshot(f"detalle_guia_{self._normalizar_texto(numero_guia)}")
-            return numero_guia
+            for indice in range(total_filas):
+                fila = filas.nth(indice)
+                if fila.get_by_text(patron_estado).count() == 0:
+                    continue
+
+                numero_guia = fila.locator("td").first.inner_text().strip()
+                boton_detalle = fila.locator("td").nth(9).locator("button").first
+                if boton_detalle.count() == 0:
+                    boton_detalle = fila.locator("button").first
+                expect(boton_detalle).to_be_visible(timeout=10000)
+                self._take_screenshot(f"detalle_previo_{self._normalizar_texto(numero_guia)}")
+                boton_detalle.click()
+                expect(self.page.get_by_role("button", name=re.compile("agregar consolidado", re.I))).to_be_visible(
+                    timeout=30000
+                )
+                self._take_screenshot(f"detalle_guia_{self._normalizar_texto(numero_guia)}")
+                return numero_guia
+
+            paginas_revisadas += 1
+            if not self._ir_siguiente_pagina_tabla():
+                break
 
         raise AssertionError(f"No se encontro una guia madre en estado '{estado}'.")
 
@@ -268,14 +274,31 @@ class ControlAduaneroPage:
             nombre_consolidado = fila.locator("td").first.inner_text().strip()
             self._take_screenshot(f"detalle_consolidado_previo_{self._normalizar_texto(nombre_consolidado)}")
             boton_detalle.click()
-            expect(self.page.get_by_role("button", name=re.compile("despachar", re.I))).to_be_visible(timeout=30000)
+            boton_despachar = self.page.get_by_role("button", name=re.compile("^despachar$", re.I)).first
+            expect(boton_despachar).to_be_visible(timeout=30000)
+            if boton_despachar.is_disabled():
+                self._take_screenshot(f"consolidado_ya_despachado_{self._normalizar_texto(nombre_consolidado)}")
+                self._regresar_a_consolidados()
+                filas = self.page.locator("tbody tr")
+                continue
+
             self._take_screenshot(f"detalle_consolidado_{self._normalizar_texto(nombre_consolidado)}")
             return nombre_consolidado
 
-        raise AssertionError("No se encontro un consolidado con boton de detalle disponible.")
+        raise AssertionError("No se encontro un consolidado con boton 'Despachar' habilitado.")
 
     @allure.step("Despachar cajas")
     def despachar_cajas(self) -> None:
+        self._despachar_consolidado_actual()
+        while True:
+            self._regresar_a_consolidados()
+            try:
+                self.abrir_detalle_primer_consolidado_disponible()
+            except AssertionError:
+                break
+            self._despachar_consolidado_actual()
+
+    def _despachar_consolidado_actual(self) -> None:
         self.page.get_by_role("button", name=re.compile("^despachar$", re.I)).click(timeout=30000)
         boton_despachar_cajas = self.page.get_by_role("button", name=re.compile("despachar cajas", re.I))
         expect(boton_despachar_cajas).to_be_visible(timeout=30000)
@@ -287,7 +310,7 @@ class ControlAduaneroPage:
         self._take_screenshot("modal_confirmar_despacho_cajas")
         boton_confirmar.click()
 
-        expect(self.page.get_by_text(re.compile("operaci[oó]n completa con [eé]xito", re.I))).to_be_visible(
+        expect(self.page.get_by_text(re.compile("operaci[oó]n completad[ao] con [eé]xito", re.I))).to_be_visible(
             timeout=30000
         )
         self._confirmar_modal_entendido("despacho_cajas_exitoso")
@@ -369,6 +392,40 @@ class ControlAduaneroPage:
                 self.page.wait_for_load_state("networkidle")
 
         expect(self.page.get_by_role("heading", name=re.compile("gu[ií]as madre", re.I))).to_be_visible(timeout=30000)
+
+    def _regresar_a_consolidados(self) -> None:
+        boton_regresar = self.page.get_by_role("button", name=re.compile("regresar", re.I)).first
+        if boton_regresar.count() == 0:
+            self.page.go_back(wait_until="networkidle")
+        else:
+            boton_regresar.click()
+            self.page.wait_for_load_state("networkidle")
+        expect(self.page.get_by_role("button", name=re.compile("agregar consolidado", re.I))).to_be_visible(
+            timeout=30000
+        )
+
+    def _ir_siguiente_pagina_tabla(self) -> bool:
+        primera_fila = self.page.locator("tbody tr").first
+        texto_primera_fila = primera_fila.inner_text().strip() if primera_fila.count() > 0 else ""
+        candidatos = [
+            self.page.get_by_role("button", name=re.compile("siguiente|next", re.I)).last,
+            self.page.locator("button[aria-label*='iguiente' i], button[aria-label*='next' i]").last,
+            self.page.locator("button").filter(has_text=re.compile(r"^>$|»", re.I)).last,
+        ]
+
+        for boton in candidatos:
+            if boton.count() == 0 or not boton.is_visible() or boton.is_disabled():
+                continue
+            boton.click()
+            self.page.wait_for_load_state("networkidle")
+            try:
+                expect(primera_fila).not_to_have_text(texto_primera_fila, timeout=10000)
+            except AssertionError:
+                pass
+            self._take_screenshot("siguiente_pagina_tabla")
+            return True
+
+        return False
 
     def _seleccionar_selectivo(self, selectivo: str) -> None:
         patron_label = re.compile("selectivo.*cargar|selectivo.*carga", re.I)
