@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import datetime
 from pathlib import Path
 
@@ -223,6 +224,128 @@ def add_numbered(doc: Document, items: list[str]) -> None:
         p.add_run(item)
 
 
+def collect_attachments(steps: list[dict], output: dict[str, Path]) -> None:
+    for step in steps:
+        for attachment in step.get("attachments", []):
+            if attachment.get("type") != "image/png":
+                continue
+            name = attachment.get("name", "")
+            source = attachment.get("source", "")
+            if name and source:
+                output.setdefault(name, PROJECT_ROOT / "allure-results" / source)
+        collect_attachments(step.get("steps", []), output)
+
+
+def latest_flow_complete_screenshots() -> dict[str, Path]:
+    results_dir = PROJECT_ROOT / "allure-results"
+    if not results_dir.exists():
+        return {}
+
+    for result_file in sorted(results_dir.glob("*result.json"), key=lambda path: path.stat().st_mtime, reverse=True):
+        try:
+            data = json.loads(result_file.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError):
+            continue
+        if "Flujo completo Control Aduanero" not in data.get("name", ""):
+            continue
+        attachments: dict[str, Path] = {}
+        collect_attachments(data.get("steps", []), attachments)
+        return {name: path for name, path in attachments.items() if path.exists()}
+
+    return {}
+
+
+def find_screenshot(attachments: dict[str, Path], *prefixes: str) -> Path | None:
+    for prefix in prefixes:
+        for name, path in attachments.items():
+            if name.startswith(prefix):
+                return path
+    return None
+
+
+def add_screenshot(doc: Document, title: str, description: str, image_path: Path | None) -> None:
+    doc.add_heading(title, level=3)
+    p = doc.add_paragraph(description)
+    p.paragraph_format.keep_with_next = True
+    if not image_path:
+        add_callout(doc, "Evidencia no disponible", "No se encontro captura local para este paso en allure-results.")
+        return
+
+    paragraph = doc.add_paragraph()
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = paragraph.add_run()
+    run.add_picture(str(image_path), width=Inches(6.1))
+    caption = doc.add_paragraph(f"Captura: {image_path.name}")
+    caption.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    for caption_run in caption.runs:
+        caption_run.font.size = Pt(8)
+        caption_run.font.color.rgb = MUTED
+
+
+def add_user_manual_screenshots(doc: Document) -> None:
+    attachments = latest_flow_complete_screenshots()
+    doc.add_heading("Paso a paso con capturas", level=1)
+    add_callout(
+        doc,
+        "Origen de capturas",
+        "Las imagenes de esta seccion provienen de la ultima ejecucion local del marcador flujo_completo en Allure.",
+    )
+    screenshot_steps = [
+        (
+            "1. Acceso al sistema",
+            "Ingresar al sistema y seleccionar el pais de trabajo antes de iniciar sesion.",
+            find_screenshot(attachments, "abrir_control_aduanero"),
+        ),
+        (
+            "2. Formulario de guia madre",
+            "Abrir Agregar guia madre y completar los campos requeridos del manifiesto.",
+            find_screenshot(attachments, "formulario_guia_madre", "datos_guia_madre"),
+        ),
+        (
+            "3. Guia madre creada",
+            "Confirmar el mensaje de creacion exitosa y validar que la guia aparece en el listado.",
+            find_screenshot(attachments, "guia_madre_creada"),
+        ),
+        (
+            "4. Estado Arribo al pais",
+            "Verificar que la guia madre creada inicia en el estado Arribo al pais.",
+            find_screenshot(attachments, "estado_arribo_al"),
+        ),
+        (
+            "5. Entrega a aduana",
+            "Ejecutar Entregar a aduana y confirmar el cambio de estado.",
+            find_screenshot(attachments, "modal_entrega_aduana", "entrega_aduana_realizada"),
+        ),
+        (
+            "6. Estado Arribo a aduana",
+            "Validar que la guia madre queda disponible para carga de consolidados.",
+            find_screenshot(attachments, "estado_arribo_a_aduana"),
+        ),
+        (
+            "7. Carga de consolidado",
+            "Cargar los archivos de selectivo Verde, Rojo y Amarillo en la guia madre.",
+            find_screenshot(attachments, "consolidado_verde", "consolidado_rojo", "consolidado_amarillo"),
+        ),
+        (
+            "8. Estado Carga de selectivos",
+            "Confirmar que la guia madre cambia a Carga de selectivos despues de cargar consolidados.",
+            find_screenshot(attachments, "estado_carga_de_selectivos"),
+        ),
+        (
+            "9. Despacho de cajas",
+            "Entrar al detalle del consolidado y ejecutar el despacho de cajas.",
+            find_screenshot(attachments, "modal_despachar_cajas", "despacho_cajas_exitoso"),
+        ),
+        (
+            "10. Estado Completado y bloqueo",
+            "Confirmar que la guia madre queda Completado y que Agregar consolidado queda bloqueado.",
+            find_screenshot(attachments, "guia_madre_completada", "agregar_consolidado_bloqueado"),
+        ),
+    ]
+    for title, description, image_path in screenshot_steps:
+        add_screenshot(doc, title, description, image_path)
+
+
 def add_common_flow_sections(doc: Document, technical: bool = False) -> None:
     doc.add_heading("Flujo operativo validado", level=1)
     add_matrix(
@@ -407,6 +530,7 @@ def build_user_manual() -> None:
             "Verificar que el boton Agregar consolidado quede bloqueado.",
         ],
     )
+    add_user_manual_screenshots(doc)
     add_common_flow_sections(doc)
     doc.add_heading("Campos obligatorios de guia madre", level=1)
     add_matrix(
