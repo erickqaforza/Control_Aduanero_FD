@@ -79,6 +79,12 @@ Ejecutar carga de consolidados y generar reporte:
 .\run_login_report.ps1 -Marker agregar_consolidado
 ```
 
+Ejecutar despacho de cajas y generar reporte:
+
+```powershell
+.\run_login_report.ps1 -Marker despacho_cajas
+```
+
 Por defecto, el flujo de consolidado busca los archivos en `Downloads`. Si estan en otra ruta,
 configura la variable `CONSOLIDADO_FILES_DIR` en `.env`.
 

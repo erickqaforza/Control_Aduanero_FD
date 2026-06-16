@@ -91,3 +91,20 @@ Feature: Control Aduanero FD
       | Guatemala   |
       | Honduras    |
       | El Salvador |
+
+  @despacho_cajas @control_aduanero
+  Scenario Outline: Despachar cajas por pais
+    Given el usuario abre Control Aduanero FD
+    When el usuario inicia sesion en el pais "<pais>"
+    And acepta el modal informativo
+    And abre el detalle de una guia madre en estado carga de selectivos
+    And abre el detalle del primer consolidado disponible
+    And despacha las cajas del consolidado
+    Then debe visualizar la guia madre despachada en estado completado
+    And debe validar que agregar consolidado esta bloqueado
+
+    Examples:
+      | pais        |
+      | Guatemala   |
+      | Honduras    |
+      | El Salvador |

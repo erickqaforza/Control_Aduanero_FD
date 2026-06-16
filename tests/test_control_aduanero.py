@@ -282,6 +282,56 @@ def validar_consolidados_cargados(
         control_aduanero_page.validar_consolidado_cargado(consolidado)
 
 
+@when("abre el detalle de una guia madre en estado carga de selectivos")
+def abrir_detalle_guia_carga_selectivos(
+    control_aduanero_page: ControlAduaneroPage,
+    contexto_aduana: dict,
+):
+    pais = contexto_aduana.get("pais", "Guatemala")
+    allure.dynamic.title(f"Despachar cajas - {pais}")
+    allure.dynamic.feature("Guias madre")
+    allure.dynamic.story("Despacho de cajas")
+    allure.dynamic.suite("Control Aduanero FD")
+    allure.dynamic.sub_suite("Manifiestos")
+    allure.dynamic.severity(allure.severity_level.CRITICAL)
+    allure.dynamic.parameter("pais", pais)
+
+    numero_guia = control_aduanero_page.abrir_detalle_primera_guia_en_carga_selectivos()
+    contexto_aduana["numero_guia_despacho"] = numero_guia
+    allure.dynamic.parameter("numero_guia", numero_guia)
+
+
+@when("abre el detalle del primer consolidado disponible")
+def abrir_detalle_consolidado_disponible(
+    control_aduanero_page: ControlAduaneroPage,
+    contexto_aduana: dict,
+):
+    nombre_consolidado = control_aduanero_page.abrir_detalle_primer_consolidado_disponible()
+    contexto_aduana["nombre_consolidado_despacho"] = nombre_consolidado
+    allure.dynamic.parameter("nombre_consolidado", nombre_consolidado)
+
+
+@when("despacha las cajas del consolidado")
+def despachar_cajas(control_aduanero_page: ControlAduaneroPage):
+    control_aduanero_page.despachar_cajas()
+
+
+@then("debe visualizar la guia madre despachada en estado completado")
+def validar_guia_madre_despachada(
+    control_aduanero_page: ControlAduaneroPage,
+    contexto_aduana: dict,
+):
+    control_aduanero_page.validar_guia_madre_completada(contexto_aduana["numero_guia_despacho"])
+
+
+@then("debe validar que agregar consolidado esta bloqueado")
+def validar_agregar_consolidado_bloqueado(
+    control_aduanero_page: ControlAduaneroPage,
+    contexto_aduana: dict,
+):
+    control_aduanero_page.validar_agregar_consolidado_bloqueado(contexto_aduana["numero_guia_despacho"])
+
+
 def generar_guia_madre(moneda: str) -> GuiaMadre:
     origenes_destinos = ["GT", "HN", "RC", "MIAMI", "FRA"]
     origen = random.choice(origenes_destinos)
